@@ -5,7 +5,8 @@ import { ethers } from 'ethers';
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.infura.io/v3/50cd28072c734af894341e362fcc0263';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || '11155111'); // Sepolia chain ID
-const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+// Contract address will be used when contract is deployed
+// const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,12 +44,12 @@ export async function POST(request: NextRequest) {
       // Verify network
       const network = await provider.getNetwork();
       if (network.chainId !== BigInt(11155111)) {
-        throw new Error(`Invalid network. Expected Sepolia (11155111), got ${network.chainId}`);
+        throw new Error(`Invalid network. Expected Sepolia (11155111), got ${network.chainId.toString()}`);
       }
 
       // Check wallet balance
       const balance = await provider.getBalance(wallet.address);
-      if (balance === 0n) {
+      if (balance === BigInt(0)) {
         throw new Error('Insufficient balance. Please fund your wallet with Sepolia ETH.');
       }
 
@@ -70,6 +71,10 @@ export async function POST(request: NextRequest) {
       
       // Wait for confirmation
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction receipt is null');
+      }
+      
       console.log(`[Sepolia] Transaction confirmed in block: ${receipt.blockNumber}`);
       console.log(`[Sepolia] Gas used: ${receipt.gasUsed.toString()}`);
       

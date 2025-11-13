@@ -6,7 +6,7 @@
 // FHEVM Service for Sepolia network
 // This service initializes and manages FHEVM operations for real Sepolia transactions
 
-let fhevmInitialized = false;
+// Removed unused variable
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.infura.io/v3/50cd28072c734af894341e362fcc0263';
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || '11155111'); // Sepolia chain ID
 
@@ -64,6 +64,8 @@ export class FhevmService {
     
     // For now, return a mock encrypted value
     // In production, this will be a real FHE encrypted handle
+    // Using options to avoid unused variable warning
+    void options; // Acknowledge parameter usage
     const mockHandle = `0x${Array.from({ length: 64 }, () =>
       Math.floor(Math.random() * 16).toString(16)
     ).join('')}`;
@@ -76,6 +78,10 @@ export class FhevmService {
     
     // TODO: Replace with real FHEVM decryption
     // const decrypted = await fhevmInstance.decrypt(handle, contractAddress);
+    
+    // Acknowledge parameters to avoid unused warnings
+    void handle;
+    void contractAddress;
     
     // For now, return a mock value
     return 0;
