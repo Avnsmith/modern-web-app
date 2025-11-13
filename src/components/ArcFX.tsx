@@ -104,14 +104,22 @@ const ArcFX = () => {
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 4902) {
         try {
+          // For Arc Testnet, ensure USDC is set as native currency
+          const chainParams: any = {
+            chainId: chain.chainId,
+            chainName: chain.name,
+            rpcUrls: [chain.rpc],
+            blockExplorerUrls: [chain.explorer],
+            nativeCurrency: {
+              name: chain.nativeToken === 'USDC' ? 'USD Coin' : chain.nativeToken,
+              symbol: chain.nativeToken,
+              decimals: chain.nativeToken === 'USDC' ? 6 : 18, // USDC uses 6 decimals
+            }
+          };
+          
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: chain.chainId,
-              chainName: chain.name,
-              rpcUrls: [chain.rpc],
-              blockExplorerUrls: [chain.explorer]
-            }],
+            params: [chainParams],
           });
         } catch (addError) {
           console.error('Failed to add network:', addError);
