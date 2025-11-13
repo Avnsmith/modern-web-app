@@ -11,7 +11,31 @@ import {
   type Config as WagmiConfig,
 } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { sepolia } from 'wagmi/chains';
+import { sepolia, arbitrumSepolia } from 'wagmi/chains';
+import { defineChain } from 'viem';
+
+// Define Arc Testnet chain
+const arcTestnet = defineChain({
+  id: 5042002, // 0x4CEF52 in decimal - actual chain ID
+  name: 'Arc Testnet',
+  nativeCurrency: {
+    name: 'USDC',
+    symbol: 'USDC',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.testnet.arc.network'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'ArcScan',
+      url: 'https://testnet.arcscan.app',
+    },
+  },
+  testnet: true,
+});
 
 type ProvidersProps = {
   children: ReactNode;
@@ -21,9 +45,9 @@ function useWagmiConfig(): WagmiConfig {
   return useMemo(
     () =>
       getDefaultConfig({
-        appName: 'Private Tips',
+        appName: 'ArcFX',
         projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_ID ?? 'demo',
-        chains: [sepolia],
+        chains: [arcTestnet, sepolia, arbitrumSepolia],
         ssr: true,
       }),
     []
