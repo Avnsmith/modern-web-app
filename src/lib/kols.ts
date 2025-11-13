@@ -13,7 +13,7 @@ export const KOLS: KolProfile[] = [
     id: 'rand',
     name: 'Rand Hindi',
     handle: '@randhindi',
-    address: '0x8ba1f109551bD432803012645ac136c22C3e0b1',
+    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
     category: 'Founder',
     avatar: '👨‍💼',
     description: 'Zama Founder',
@@ -22,7 +22,7 @@ export const KOLS: KolProfile[] = [
     id: 'bella',
     name: 'Bella Thorne',
     handle: '@bellathorne',
-    address: '0x9c72f0949a6b6c8b3F7d0e2F8a1c9B5E4D7F3A2',
+    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
     category: 'Creator',
     avatar: '👩‍🎤',
     description: 'OnlyFans Creator',
@@ -31,7 +31,7 @@ export const KOLS: KolProfile[] = [
     id: 'branch',
     name: 'Branch',
     handle: '@Branch',
-    address: '0x7a3B5c8E9f2d1a4b6C8d0e3F7A5B2C9D1E4F6A8',
+    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
     category: 'Creator',
     avatar: '🌿',
     description: 'Content Creator',
