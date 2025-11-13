@@ -15,8 +15,21 @@ export function PrivateTipsApp() {
   const [encryptedAmount, setEncryptedAmount] = useState('');
   const [status, setStatus] = useState('');
 
-  const { address, isConnected } = useAccount();
-  const { sendTransaction, data: hash, isPending, error: sendError } = useSendTransaction();
+  const { address, isConnected, connector } = useAccount();
+  
+  // Use mutation mode to have full control over transaction
+  const { sendTransaction, data: hash, isPending, error: sendError } = useSendTransaction({
+    mutation: {
+      onError: (error) => {
+        console.error('Transaction error:', error);
+        // Check if error is about data field
+        if (error.message.includes('data') || error.message.includes('gas limit')) {
+          setStatus('Error: Transaction includes data field. This should not happen.');
+        }
+      },
+    },
+  });
+  
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
   });
@@ -42,37 +55,39 @@ export function PrivateTipsApp() {
       setEncryptedAmount(ciphertext);
       setStatus('Sending transaction...');
 
-      // CRITICAL: Send transaction FIRST, then store encryption separately
-      // Do NOT reference ciphertext anywhere near the transaction
-      // Build transaction object in a separate scope to ensure no data leakage
-      const recipient = selectedKOL.address as `0x${string}`;
-      const amount = parseEther(tipAmount);
+      // CRITICAL FIX: Error shows data is STILL being added (0xe3da3b71...)
+      // This data looks like it might be coming from the ciphertext variable
+      // Let's completely isolate the transaction from any encryption variables
       
-      // Create a completely fresh object with ONLY to and value
-      // Do this in a way that cannot accidentally include ciphertext
-      const pureTransfer = (() => {
-        const tx: { to: `0x${string}`; value: bigint } = {
-          to: recipient,
-          value: amount,
+      // Clear any potential references to ciphertext before building transaction
+      const cleanCiphertext = ciphertext; // Store separately
+      setEncryptedAmount(cleanCiphertext); // Store in state
+      
+      // Now build transaction in completely isolated scope
+      // Use function scope to ensure no variable leakage
+      const buildPureTransaction = () => {
+        const recipient = selectedKOL.address;
+        const ethValue = tipAmount;
+        
+        // Return ONLY what's needed - no data, no ciphertext reference
+        return {
+          to: recipient as `0x${string}`,
+          value: parseEther(ethValue),
         };
-        return tx;
-      })();
+      };
       
-      // Double-check: verify no data field exists
-      const hasData = 'data' in pureTransfer;
-      if (hasData) {
-        console.error('ERROR: Transaction object has data field!', pureTransfer);
-        throw new Error('Transaction object should not have data field');
-      }
+      const tx = buildPureTransaction();
       
-      console.log('Sending pure ETH transfer (verified no data):', {
-        to: pureTransfer.to,
-        value: pureTransfer.value.toString(),
-        hasData: false,
-      });
+      // Verify transaction object
+      console.log('=== TRANSACTION VERIFICATION ===');
+      console.log('Keys:', Object.keys(tx));
+      console.log('Has data:', 'data' in tx);
+      console.log('Transaction object:', tx);
+      console.log('Ciphertext variable exists:', typeof cleanCiphertext !== 'undefined');
+      console.log('================================');
       
-      // Send the transaction - this is a pure ETH transfer
-      sendTransaction(pureTransfer);
+      // Send transaction - this MUST be pure ETH transfer
+      sendTransaction(tx);
     } catch (error) {
       console.error('Error sending tip:', error);
       setStatus(`Error: ${(error as Error).message}`);
