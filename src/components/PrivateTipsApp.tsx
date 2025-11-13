@@ -31,7 +31,8 @@ const TIPS_CONTRACT_ABI = [
 ];
 
 // Contract address - will be set after deployment
-const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '';
+// For now, using a placeholder - replace with actual deployed contract address
+const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
 
 export function PrivateTipsApp() {
   const [selectedKOL, setSelectedKOL] = useState<KolProfile | null>(null);
@@ -74,8 +75,8 @@ export function PrivateTipsApp() {
       return;
     }
 
-    if (!TIPS_CONTRACT_ADDRESS) {
-      setStatus('Error: Contract address not configured. Please deploy the contract first.');
+    if (!TIPS_CONTRACT_ADDRESS || TIPS_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') {
+      setStatus('Error: Contract address not configured. Please deploy the contract first and set NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS in environment variables.');
       return;
     }
 
