@@ -19,18 +19,21 @@ const arcTestnet = defineChain({
   id: 5042002, // 0x4CEF52 in decimal - actual chain ID
   name: 'Arc Testnet',
   nativeCurrency: {
-    name: 'USDC',
+    name: 'USD Coin',
     symbol: 'USDC',
-    decimals: 18,
+    decimals: 6, // USDC uses 6 decimals, not 18
   },
   rpcUrls: {
     default: {
       http: ['https://rpc.testnet.arc.network'],
     },
+    public: {
+      http: ['https://rpc.testnet.arc.network'],
+    },
   },
   blockExplorers: {
     default: {
-      name: 'ArcScan',
+      name: 'ArcScan Testnet',
       url: 'https://testnet.arcscan.app',
     },
   },
