@@ -50,7 +50,7 @@ export function PrivateTipsApp() {
         value: parseEther(tipAmount),
         // Don't include large encrypted data - it causes gas limit errors
         // The encryption is handled server-side and linked via the encryptionId
-        gas: 21000n, // Standard ETH transfer gas limit
+        gas: BigInt(21000), // Standard ETH transfer gas limit
       });
     } catch (error) {
       console.error('Error sending tip:', error);
