@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
     // In production, store this in database
     // await db.encryptedTips.create({ ciphertext, from, to, amount, encryptionId });
 
-    console.log(`Encrypted tip: ${amount} ETH from ${from} to ${to}`);
-    console.log(`Encryption ID: ${encryptionId}`);
+    console.log(`[Sepolia] Encrypted tip: ${amount} ETH from ${from} to ${to}`);
+    console.log(`[Sepolia] Encryption ID: ${encryptionId}`);
 
     return NextResponse.json({
       ciphertext,

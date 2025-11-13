@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+// Sepolia network configuration - REAL TRANSACTIONS ONLY
+const RPC_URL = process.env.RPC_URL || 'https://sepolia.infura.io/v3/50cd28072c734af894341e362fcc0263';
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '11155111'); // Sepolia chain ID
 const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
 
 export async function POST(request: NextRequest) {
@@ -17,55 +19,98 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For local testing, we'll simulate a transaction
-    // In production, this would interact with a real FHE contract
-    
+    // REQUIRE private key for real Sepolia transactions
     if (!PRIVATE_KEY) {
-      // If no private key, return a mock transaction for testing
-      console.log('No private key configured - returning mock transaction');
-      const mockTxHash = `0x${Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('')}`;
-      
-      return NextResponse.json({
-        txHash: mockTxHash,
-        message: 'Mock transaction (no private key configured)',
-      });
+      return NextResponse.json(
+        { 
+          error: 'Private key required for Sepolia transactions. Please configure PRIVATE_KEY in environment variables.',
+          message: 'This endpoint requires a private key to send real transactions to Sepolia testnet.'
+        },
+        { status: 500 }
+      );
     }
 
-    // Real transaction with private key
+    // Verify we're using Sepolia network
+    if (CHAIN_ID !== 11155111) {
+      console.warn(`Warning: Expected Sepolia (11155111), but CHAIN_ID is ${CHAIN_ID}`);
+    }
+
+    // Real Sepolia transaction
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
       
-      // TODO: Replace with actual contract ABI and method call
-      // For now, we'll send a simple transaction
-      // const contract = new ethers.Contract(TIPS_CONTRACT_ADDRESS, TIPS_ABI, wallet);
-      // const tx = await contract.sendEncryptedTip(toAddress, ciphertext);
-      // const receipt = await tx.wait();
+      // Verify network
+      const network = await provider.getNetwork();
+      if (network.chainId !== BigInt(11155111)) {
+        throw new Error(`Invalid network. Expected Sepolia (11155111), got ${network.chainId}`);
+      }
+
+      // Check wallet balance
+      const balance = await provider.getBalance(wallet.address);
+      if (balance === 0n) {
+        throw new Error('Insufficient balance. Please fund your wallet with Sepolia ETH.');
+      }
+
+      console.log(`[Sepolia] Sending real transaction from ${wallet.address} to ${toAddress}`);
+      console.log(`[Sepolia] Network: ${network.name} (Chain ID: ${network.chainId})`);
+      console.log(`[Sepolia] Balance: ${ethers.formatEther(balance)} ETH`);
       
-      // For testing, send a minimal transaction
+      // Send real transaction to Sepolia
+      // TODO: Replace with actual contract ABI and method call when contract is deployed
+      // For now, we'll send a transaction with encrypted data
       const tx = await wallet.sendTransaction({
         to: toAddress,
         value: 0,
         data: ciphertext, // Include encrypted data in transaction data
       });
       
-      console.log(`Transaction sent: ${tx.hash}`);
+      console.log(`[Sepolia] Transaction sent: ${tx.hash}`);
+      console.log(`[Sepolia] View on Etherscan: https://sepolia.etherscan.io/tx/${tx.hash}`);
+      
+      // Wait for confirmation
       const receipt = await tx.wait();
-      console.log(`Transaction confirmed in block: ${receipt.blockNumber}`);
+      console.log(`[Sepolia] Transaction confirmed in block: ${receipt.blockNumber}`);
+      console.log(`[Sepolia] Gas used: ${receipt.gasUsed.toString()}`);
       
       return NextResponse.json({
         txHash: receipt.hash,
-        blockNumber: receipt.blockNumber,
-        message: 'Transaction confirmed',
+        blockNumber: receipt.blockNumber.toString(),
+        gasUsed: receipt.gasUsed.toString(),
+        network: 'Sepolia',
+        etherscanUrl: `https://sepolia.etherscan.io/tx/${receipt.hash}`,
+        message: 'Real transaction confirmed on Sepolia',
       });
     } catch (txError) {
-      console.error('Transaction error:', txError);
+      console.error('[Sepolia] Transaction error:', txError);
+      
+      // Provide helpful error messages
+      if (txError instanceof Error) {
+        if (txError.message.includes('insufficient funds')) {
+          return NextResponse.json(
+            { 
+              error: 'Insufficient balance for transaction',
+              message: 'Please fund your wallet with Sepolia ETH from a faucet',
+              faucetUrl: 'https://sepoliafaucet.com/'
+            },
+            { status: 400 }
+          );
+        }
+        if (txError.message.includes('network')) {
+          return NextResponse.json(
+            { 
+              error: 'Network error',
+              message: txError.message
+            },
+            { status: 500 }
+          );
+        }
+      }
+      
       throw txError;
     }
   } catch (error) {
-    console.error('Relay tx error:', error);
+    console.error('[Sepolia] Relay tx error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Transaction relay failed' },
       { status: 500 }

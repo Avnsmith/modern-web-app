@@ -3,12 +3,12 @@
  * This service initializes and manages FHEVM operations
  */
 
-// For local testing, we'll use a simple encryption service
-// In production, this should connect to the FHEVM SDK
+// FHEVM Service for Sepolia network
+// This service initializes and manages FHEVM operations for real Sepolia transactions
 
 let fhevmInitialized = false;
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || '31337'); // Local Hardhat
+const RPC_URL = process.env.RPC_URL || 'https://sepolia.infura.io/v3/50cd28072c734af894341e362fcc0263';
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '11155111'); // Sepolia chain ID
 
 export interface EncryptOptions {
   contractAddress: string;
@@ -31,16 +31,23 @@ export class FhevmService {
     if (this.initialized) return;
     
     try {
-      // In production, initialize FHEVM SDK here
-      // For now, we'll use a mock that can be replaced with real FHEVM
-      console.log('Initializing FHEVM service...');
-      console.log(`RPC URL: ${RPC_URL}`);
-      console.log(`Chain ID: ${CHAIN_ID}`);
+      // Initialize FHEVM SDK for Sepolia network
+      console.log('[Sepolia] Initializing FHEVM service...');
+      console.log(`[Sepolia] RPC URL: ${RPC_URL}`);
+      console.log(`[Sepolia] Chain ID: ${CHAIN_ID} (Sepolia)`);
+      
+      // TODO: Initialize real FHEVM SDK here
+      // const fhevmInstance = await initializeFheInstance({ rpcUrl: RPC_URL });
+      
+      // Verify we're on Sepolia
+      if (CHAIN_ID !== 11155111) {
+        console.warn(`[Sepolia] Warning: Expected Sepolia (11155111), but CHAIN_ID is ${CHAIN_ID}`);
+      }
       
       this.initialized = true;
-      console.log('FHEVM service initialized');
+      console.log('[Sepolia] FHEVM service initialized for Sepolia network');
     } catch (error) {
-      console.error('Failed to initialize FHEVM service:', error);
+      console.error('[Sepolia] Failed to initialize FHEVM service:', error);
       throw error;
     }
   }

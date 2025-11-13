@@ -11,7 +11,7 @@ import {
   type Config as WagmiConfig,
 } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { sepolia, hardhat } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 
 type ProvidersProps = {
   children: ReactNode;
@@ -23,7 +23,7 @@ function useWagmiConfig(): WagmiConfig {
       getDefaultConfig({
         appName: 'Private Tips',
         projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_ID ?? 'demo',
-        chains: [hardhat, sepolia],
+        chains: [sepolia],
         ssr: true,
       }),
     []
