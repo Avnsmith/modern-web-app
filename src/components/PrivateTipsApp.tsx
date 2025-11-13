@@ -4,10 +4,34 @@ import { useState, useEffect } from 'react';
 import { Send, Shield, User, Check, AlertCircle } from 'lucide-react';
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { parseEther, createWalletClient, custom } from 'viem';
-import { sepolia } from 'viem/chains';
-import { encryptTip } from '../lib/fhe/client';
+import { ethers } from 'ethers';
+import { useFhevm, useEncrypt, useDecrypt, useContract } from '../lib/fhevm/hooks';
 import { KOLS, type KolProfile } from '../lib/kols';
+
+// FHE Tips Contract ABI
+const TIPS_CONTRACT_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "kolAddress", type: "address" },
+      { internalType: "externalEuint32", name: "inputEuint32", type: "bytes32" },
+      { internalType: "bytes", name: "inputProof", type: "bytes" },
+    ],
+    name: "sendTip",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "kolAddress", type: "address" }],
+    name: "getBalance",
+    outputs: [{ internalType: "euint32", name: "", type: "bytes32" }],
+    stateMutability: "view",
+    type: "function",
+  },
+];
+
+// Contract address - will be set after deployment
+const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '';
 
 export function PrivateTipsApp() {
   const [selectedKOL, setSelectedKOL] = useState<KolProfile | null>(null);
@@ -21,9 +45,21 @@ export function PrivateTipsApp() {
   const [isPending, setIsPending] = useState(false);
   const [sendError, setSendError] = useState<Error | null>(null);
   
+  // FHEVM hooks
+  const { status: fhevmStatus, initialize: initializeFhevm, isInitialized } = useFhevm();
+  const { encrypt, isEncrypting, error: encryptError } = useEncrypt();
+  const { decrypt } = useDecrypt();
+  
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash || undefined,
   });
+
+  // Initialize FHEVM when wallet connects
+  useEffect(() => {
+    if (isConnected && fhevmStatus === 'idle') {
+      initializeFhevm();
+    }
+  }, [isConnected, fhevmStatus, initializeFhevm]);
 
   const handleSendTip = async () => {
     if (!tipAmount || !selectedKOL) return;
@@ -33,71 +69,70 @@ export function PrivateTipsApp() {
       return;
     }
 
+    if (!isInitialized) {
+      setStatus('Initializing FHEVM... Please wait');
+      return;
+    }
+
+    if (!TIPS_CONTRACT_ADDRESS) {
+      setStatus('Error: Contract address not configured. Please deploy the contract first.');
+      return;
+    }
+
     try {
-      setStatus('Encrypting tip amount...');
+      setIsPending(true);
+      setStatus('Encrypting tip amount with FHE...');
 
-      // Encrypt the tip amount (stored server-side, NOT in transaction)
-      const { ciphertext } = await encryptTip({
-        amount: parseFloat(tipAmount),
-        from: address,
-        to: selectedKOL.address,
-      });
+      // Encrypt the tip amount using FHEVM
+      const encryptedInput = await encrypt(
+        TIPS_CONTRACT_ADDRESS,
+        address,
+        parseFloat(tipAmount) * 100 // Convert to cents/wei equivalent for uint32
+      );
 
-      setEncryptedAmount(ciphertext);
-      setStatus('Sending transaction...');
-      
-      // CRITICAL: Use wallet provider DIRECTLY to bypass wagmi/viem auto-behavior
-      // This ensures we have complete control and no data is added
-      if (typeof window === 'undefined' || !window.ethereum) {
+      setEncryptedAmount(encryptedInput.encryptedData);
+      setStatus('Sending FHE-protected transaction...');
+
+      // Get signer for contract interaction
+      if (!window.ethereum) {
         throw new Error('MetaMask not found');
       }
-      
-      // Create wallet client directly with explicit configuration
-      const walletClient = createWalletClient({
-        chain: sepolia,
-        transport: custom(window.ethereum),
-      });
-      
-      // Get account from wallet
-      const [account] = await walletClient.getAddresses();
-      if (!account) {
-        throw new Error('No account found');
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const tipsContract = new ethers.Contract(
+        TIPS_CONTRACT_ADDRESS,
+        TIPS_CONTRACT_ABI,
+        signer
+      );
+
+      // Send tip with encrypted amount
+      // The contract will handle ETH transfer and encrypted balance update
+      const tx = await tipsContract.sendTip(
+        selectedKOL.address,
+        encryptedInput.encryptedData,
+        encryptedInput.proof,
+        {
+          value: ethers.parseEther(tipAmount), // Send ETH along with encrypted tip
+        }
+      );
+
+      setTxHash(tx.hash as `0x${string}`);
+      setStatus('Transaction sent! Waiting for confirmation...');
+
+      const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction receipt is null');
       }
-      
-      // Build transaction with ABSOLUTE minimum - ONLY to and value
-      const txParams = {
-        account,
-        to: selectedKOL.address as `0x${string}`,
-        value: parseEther(tipAmount),
-        // EXPLICITLY do NOT set data, gas, or any other fields
-      };
-      
-      console.log('=== DIRECT WALLET TRANSACTION ===');
-      console.log('Params:', JSON.stringify({
-        to: txParams.to,
-        value: txParams.value.toString(),
-        hasData: 'data' in txParams,
-      }));
-      console.log('==================================');
-      
-      // Send transaction directly via wallet client
-      setIsPending(true);
-      setStatus('Sending transaction...');
-      
-      try {
-        const hash = await walletClient.sendTransaction(txParams);
-        setTxHash(hash);
-        setStatus('Transaction sent! Waiting for confirmation...');
-      } catch (err) {
-        setIsPending(false);
-        setSendError(err as Error);
-        throw err;
-      } finally {
-        setIsPending(false);
-      }
+
+      setStatus('Tip sent successfully with FHE protection!');
     } catch (error) {
       console.error('Error sending tip:', error);
+      setIsPending(false);
+      setSendError(error as Error);
       setStatus(`Error: ${(error as Error).message}`);
+    } finally {
+      setIsPending(false);
     }
   };
 
