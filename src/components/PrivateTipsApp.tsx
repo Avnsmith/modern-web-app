@@ -156,9 +156,10 @@ export function PrivateTipsApp() {
           }
         );
         console.log('Gas estimate:', gasEstimate.toString());
-      } catch (gasError: any) {
+      } catch (gasError: unknown) {
+        const errorMsg = gasError instanceof Error ? gasError.message : 'Contract reverted. Please check encrypted data and contract parameters.';
         console.error('Gas estimation failed:', gasError);
-        throw new Error(`Gas estimation failed: ${gasError.message || 'Contract reverted. Please check encrypted data and contract parameters.'}`);
+        throw new Error(`Gas estimation failed: ${errorMsg}`);
       }
       
       const tx = await tipsContract.sendTip(
@@ -180,21 +181,22 @@ export function PrivateTipsApp() {
       }
 
       setStatus('Tip sent successfully with FHE protection!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending tip:', error);
       setIsPending(false);
       setSendError(error as Error);
       
       // Provide more helpful error messages
-      let errorMessage = error.message || 'Transaction failed';
+      const errorObj = error instanceof Error ? error : new Error('Unknown error');
+      let errorMessage = errorObj.message || 'Transaction failed';
       
-      if (error.message?.includes('execution reverted')) {
+      if (errorMessage.includes('execution reverted')) {
         errorMessage = 'Contract execution reverted. This might be due to invalid encrypted data format or contract parameters. Please try again or check the contract.';
-      } else if (error.message?.includes('Gas estimation failed')) {
-        errorMessage = error.message;
-      } else if (error.message?.includes('user rejected')) {
+      } else if (errorMessage.includes('Gas estimation failed')) {
+        errorMessage = errorMessage;
+      } else if (errorMessage.includes('user rejected')) {
         errorMessage = 'Transaction was rejected. Please try again.';
-      } else if (error.message?.includes('insufficient funds')) {
+      } else if (errorMessage.includes('insufficient funds')) {
         errorMessage = 'Insufficient funds. Please ensure you have enough ETH for the transaction and gas fees.';
       }
       
