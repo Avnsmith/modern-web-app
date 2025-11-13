@@ -32,7 +32,7 @@ const TIPS_CONTRACT_ABI = [
 
 // Contract address - will be set after deployment
 // For now, using a placeholder - replace with actual deployed contract address
-const TIPS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+const TIPS_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000').trim();
 
 export function PrivateTipsApp() {
   const [selectedKOL, setSelectedKOL] = useState<KolProfile | null>(null);
@@ -84,9 +84,15 @@ export function PrivateTipsApp() {
       setIsPending(true);
       setStatus('Encrypting tip amount with FHE...');
 
+      // Validate contract address before encryption
+      if (!ethers.isAddress(TIPS_CONTRACT_ADDRESS)) {
+        throw new Error(`Invalid contract address: ${TIPS_CONTRACT_ADDRESS}`);
+      }
+      const checksumContractAddress = ethers.getAddress(TIPS_CONTRACT_ADDRESS);
+      
       // Encrypt the tip amount using FHEVM
       const encryptedInput = await encrypt(
-        TIPS_CONTRACT_ADDRESS,
+        checksumContractAddress,
         address,
         parseFloat(tipAmount) * 100 // Convert to cents/wei equivalent for uint32
       );
@@ -101,8 +107,15 @@ export function PrivateTipsApp() {
 
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
+      
+      // Validate and get checksum address
+      if (!ethers.isAddress(TIPS_CONTRACT_ADDRESS)) {
+        throw new Error(`Invalid contract address: ${TIPS_CONTRACT_ADDRESS}`);
+      }
+      const checksumAddress = ethers.getAddress(TIPS_CONTRACT_ADDRESS);
+      
       const tipsContract = new ethers.Contract(
-        TIPS_CONTRACT_ADDRESS,
+        checksumAddress,
         TIPS_CONTRACT_ABI,
         signer
       );

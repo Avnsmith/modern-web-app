@@ -128,10 +128,22 @@ export function useContract(contractAddress: string, abi: any[]) {
 
   useEffect(() => {
     if (!contractAddress || !window.ethereum) return;
+    
+    // Validate address format
+    if (!ethers.isAddress(contractAddress)) {
+      console.error('Invalid contract address:', contractAddress);
+      return;
+    }
 
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const contractInstance = new ethers.Contract(contractAddress, abi, provider);
-    setContract(contractInstance);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Use getAddress to ensure proper checksum format
+      const checksumAddress = ethers.getAddress(contractAddress);
+      const contractInstance = new ethers.Contract(checksumAddress, abi, provider);
+      setContract(contractInstance);
+    } catch (error) {
+      console.error('Error creating contract instance:', error);
+    }
   }, [contractAddress, abi]);
 
   return { contract };
