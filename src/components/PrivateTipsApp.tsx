@@ -43,10 +43,14 @@ export function PrivateTipsApp() {
       setStatus('Sending transaction...');
 
       // Send transaction directly from user's wallet
+      // Note: We don't include the full encrypted data in transaction to avoid gas limit issues
+      // The encrypted data is stored server-side and linked via encryptionId
       sendTransaction({
         to: selectedKOL.address as `0x${string}`,
         value: parseEther(tipAmount),
-        data: ciphertext as `0x${string}`, // Include encrypted data
+        // Don't include large encrypted data - it causes gas limit errors
+        // The encryption is handled server-side and linked via the encryptionId
+        gas: 21000n, // Standard ETH transfer gas limit
       });
     } catch (error) {
       console.error('Error sending tip:', error);
@@ -78,7 +82,20 @@ export function PrivateTipsApp() {
 
   useEffect(() => {
     if (sendError) {
-      setStatus(`Error: ${sendError.message}`);
+      // Handle different error types with user-friendly messages
+      let errorMessage = sendError.message;
+      
+      if (errorMessage.includes('User rejected') || errorMessage.includes('denied')) {
+        errorMessage = 'Transaction was cancelled. Please try again when ready.';
+      } else if (errorMessage.includes('gas limit') || errorMessage.includes('gas')) {
+        errorMessage = 'Transaction gas limit too high. Please try a smaller amount or contact support.';
+      } else if (errorMessage.includes('insufficient funds') || errorMessage.includes('balance')) {
+        errorMessage = 'Insufficient balance. Please ensure you have enough ETH for the transaction and gas fees.';
+      } else if (errorMessage.includes('internal error')) {
+        errorMessage = 'An error occurred. Please check your wallet connection and try again.';
+      }
+      
+      setStatus(`Error: ${errorMessage}`);
     }
   }, [sendError]);
 
