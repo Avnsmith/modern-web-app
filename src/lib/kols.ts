@@ -12,7 +12,7 @@ export const KOLS: KolProfile[] = [
     id: 1, 
     name: 'Crypto Alice', 
     handle: '@cryptoalice',
-    address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb', 
+    address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0', 
     avatar: '👩‍💼',
     category: 'DeFi'
   },

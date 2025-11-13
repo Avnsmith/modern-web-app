@@ -135,7 +135,10 @@ export function PrivateTipsApp() {
         throw new Error('Invalid encrypted data format. Please try again.');
       }
       
-      // Ensure KOL address is valid checksum address
+      // Ensure KOL address is valid and convert to checksum format
+      if (!ethers.isAddress(selectedKOL.address)) {
+        throw new Error(`Invalid KOL address: ${selectedKOL.address}. Please check the KOL list configuration.`);
+      }
       const kolAddress = ethers.getAddress(selectedKOL.address);
       
       console.log('Sending tip with:', {
