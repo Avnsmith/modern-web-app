@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Send, Shield, User, Check, AlertCircle } from 'lucide-react';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { parseEther, type TransactionRequest } from 'viem';
+import { parseEther } from 'viem';
 import { encryptTip } from '../lib/fhe/client';
 import { KOLS, type KolProfile } from '../lib/kols';
 
@@ -32,7 +32,7 @@ export function PrivateTipsApp() {
     try {
       setStatus('Encrypting tip amount...');
 
-      // Encrypt the tip amount
+      // Encrypt the tip amount (stored server-side, NOT in transaction)
       const { ciphertext } = await encryptTip({
         amount: parseFloat(tipAmount),
         from: address,
@@ -42,16 +42,37 @@ export function PrivateTipsApp() {
       setEncryptedAmount(ciphertext);
       setStatus('Sending transaction...');
 
-      // Send transaction directly from user's wallet
-      // IMPORTANT: Simple ETH transfer with NO data field to avoid gas limit errors
-      // The encrypted data is stored server-side and linked via encryptionId
-      // Send as a pure ETH transfer - wallet will auto-estimate minimal gas (~21000)
-      sendTransaction({
-        to: selectedKOL.address as `0x${string}`,
-        value: parseEther(tipAmount),
-        // Do not set data field at all - this is a simple ETH transfer
-        // Do not set gas - let wallet estimate (will be ~21000 for simple transfer)
-      } as TransactionRequest);
+      // CRITICAL: Send transaction FIRST, then store encryption separately
+      // Do NOT reference ciphertext anywhere near the transaction
+      // Build transaction object in a separate scope to ensure no data leakage
+      const recipient = selectedKOL.address as `0x${string}`;
+      const amount = parseEther(tipAmount);
+      
+      // Create a completely fresh object with ONLY to and value
+      // Do this in a way that cannot accidentally include ciphertext
+      const pureTransfer = (() => {
+        const tx: { to: `0x${string}`; value: bigint } = {
+          to: recipient,
+          value: amount,
+        };
+        return tx;
+      })();
+      
+      // Double-check: verify no data field exists
+      const hasData = 'data' in pureTransfer;
+      if (hasData) {
+        console.error('ERROR: Transaction object has data field!', pureTransfer);
+        throw new Error('Transaction object should not have data field');
+      }
+      
+      console.log('Sending pure ETH transfer (verified no data):', {
+        to: pureTransfer.to,
+        value: pureTransfer.value.toString(),
+        hasData: false,
+      });
+      
+      // Send the transaction - this is a pure ETH transfer
+      sendTransaction(pureTransfer);
     } catch (error) {
       console.error('Error sending tip:', error);
       setStatus(`Error: ${(error as Error).message}`);
