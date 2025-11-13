@@ -1,36 +1,176 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Private Tips App - FHE Protected Tipping Platform
 
-## Getting Started
+A decentralized tipping platform that uses Fully Homomorphic Encryption (FHE) to protect tip amounts and sender privacy.
 
-First, run the development server:
+## ✨ Features
+
+- 🔐 **FHE Encryption** - Tip amounts are fully encrypted using FHE technology
+- 🕵️ **Complete Privacy** - Sender addresses and amounts remain private
+- 💼 **Wallet Integration** - Connect with MetaMask, WalletConnect, and more
+- 🎯 **KOL Support** - Send tips to Key Opinion Leaders (KOLs)
+- ⚡ **Real Transactions** - On-chain encrypted transactions
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (or npm)
+- MetaMask or compatible wallet
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Start development server
+pnpm dev
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Open http://localhost:3000
+```
 
-## Learn More
+## 🔧 Configuration
 
-To learn more about Next.js, take a look at the following resources:
+### Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Create `.env.local`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+NEXT_PUBLIC_WALLETCONNECT_ID=your_walletconnect_id
+RPC_URL=http://localhost:8545  # or Sepolia RPC
+PRIVATE_KEY=0x...  # For server-side operations
+CHAIN_ID=31337  # 31337 for local, 11155111 for Sepolia
+NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS=0x...
+```
 
-## Deploy on Vercel
+### Current API Configuration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Infura API Key**: `50cd28072c734af894341e362fcc0263`
+- **Network**: Sepolia Testnet or Local Hardhat
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🧪 Testing
+
+### Local Testing
+
+1. **Start Hardhat Network:**
+   ```bash
+   cd ../fhevm-template
+   pnpm hardhat:chain
+   ```
+
+2. **Deploy Contracts:**
+   ```bash
+   cd ../fhevm-template
+   pnpm --filter ./packages/hardhat hardhat deploy --network hardhat
+   ```
+
+3. **Start App:**
+   ```bash
+   pnpm dev
+   ```
+
+4. **Test API:**
+   ```bash
+   ./test-api.sh
+   ```
+
+See [TESTING.md](./TESTING.md) for detailed testing instructions.
+
+## 📚 API Endpoints
+
+### `POST /api/encrypt-tip`
+Encrypts a tip amount using FHE.
+
+**Request:**
+```json
+{
+  "amount": 0.01,
+  "from": "0x...",
+  "to": "0x..."
+}
+```
+
+**Response:**
+```json
+{
+  "ciphertext": "0x...",
+  "encryptionId": "enc_..."
+}
+```
+
+### `POST /api/relay-tx`
+Relays encrypted tip to blockchain.
+
+**Request:**
+```json
+{
+  "ciphertext": "0x...",
+  "toAddress": "0x..."
+}
+```
+
+**Response:**
+```json
+{
+  "txHash": "0x...",
+  "blockNumber": 12345
+}
+```
+
+### `GET /api/kol-balance?kolId=1`
+Gets encrypted balance for a KOL.
+
+## 🏗️ Architecture
+
+- **Frontend**: Next.js 15 with React 19
+- **Wallet**: Wagmi + RainbowKit
+- **FHE**: FHEVM SDK integration
+- **Blockchain**: Ethereum (Sepolia/Local)
+- **Styling**: Tailwind CSS
+
+## 📝 Project Structure
+
+```
+my-app/
+├── src/
+│   ├── app/
+│   │   ├── api/          # API routes
+│   │   ├── providers.tsx # Wallet providers
+│   │   └── page.tsx      # Main page
+│   ├── components/
+│   │   └── PrivateTipsApp.tsx
+│   └── lib/
+│       ├── fhe/          # FHE service
+│       └── kols.ts       # KOL data
+├── .env.local            # Environment config
+└── package.json
+```
+
+## 🔐 Security Notes
+
+- Private keys are stored in `.env.local` (gitignored)
+- FHE encryption ensures tip amounts remain private
+- All transactions are on-chain and verifiable
+- Decryption keys are server-side only
+
+## 📖 Documentation
+
+- [Testing Guide](./TESTING.md)
+- [Deployment Guide](./DEPLOYMENT.md)
+
+## 🤝 Contributing
+
+This is a template project. Feel free to extend and customize for your needs.
+
+## 📄 License
+
+MIT
