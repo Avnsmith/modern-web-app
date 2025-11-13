@@ -246,6 +246,10 @@ export function PrivateTipsApp() {
                     <div className="flex-1">
                       <div className="font-bold text-lg">{kol.name}</div>
                       <div className="text-sm text-purple-300">{kol.handle || kol.address.slice(0, 20)}</div>
+                      {kol.description && (
+                        <div className="text-xs text-purple-200 mt-1 italic">
+                          {kol.description}
+                        </div>
                       )}
                       <div className="text-xs text-gray-400 mt-1 font-mono">
                         {kol.address.slice(0, 10)}...
@@ -281,6 +285,10 @@ export function PrivateTipsApp() {
                     <div>
                       <div className="font-bold">{selectedKOL.name}</div>
                       <div className="text-sm text-purple-300">{selectedKOL.handle || selectedKOL.address.slice(0, 20)}</div>
+                      {selectedKOL.description && (
+                        <div className="text-xs text-purple-200 mt-1 italic">
+                          {selectedKOL.description}
+                        </div>
                       )}
                     </div>
                   </div>
