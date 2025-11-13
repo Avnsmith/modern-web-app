@@ -42,5 +42,3 @@ export function Providers({ children }: ProvidersProps) {
     </WagmiProvider>
   );
 }
-
-
