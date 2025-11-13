@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Send, Shield, User, Check, AlertCircle } from 'lucide-react';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { parseEther } from 'viem';
+import { parseEther, type TransactionRequest } from 'viem';
 import { encryptTip } from '../lib/fhe/client';
 import { KOLS, type KolProfile } from '../lib/kols';
 
@@ -45,13 +45,13 @@ export function PrivateTipsApp() {
       // Send transaction directly from user's wallet
       // IMPORTANT: Simple ETH transfer with NO data field to avoid gas limit errors
       // The encrypted data is stored server-side and linked via encryptionId
-      // Use minimal gas limit for simple ETH transfer (21000 is standard, safe limit is 30000)
+      // Send as a pure ETH transfer - wallet will auto-estimate minimal gas (~21000)
       sendTransaction({
         to: selectedKOL.address as `0x${string}`,
         value: parseEther(tipAmount),
-        gas: BigInt(30000), // Safe limit for simple transfer (well below 16M cap)
-        // DO NOT include data field - causes gas limit errors
-      });
+        // Do not set data field at all - this is a simple ETH transfer
+        // Do not set gas - let wallet estimate (will be ~21000 for simple transfer)
+      } as TransactionRequest);
     } catch (error) {
       console.error('Error sending tip:', error);
       setStatus(`Error: ${(error as Error).message}`);
