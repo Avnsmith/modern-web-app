@@ -20,15 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // REQUIRE private key for real Sepolia transactions
+    // This endpoint is optional - transactions can be sent directly from user's wallet
+    // Private key is only needed if you want server-side transaction relaying
+    // For now, we'll just return success since users send from their own wallets
     if (!PRIVATE_KEY) {
-      return NextResponse.json(
-        { 
-          error: 'Private key required for Sepolia transactions. Please configure PRIVATE_KEY in environment variables.',
-          message: 'This endpoint requires a private key to send real transactions to Sepolia testnet.'
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        txHash: null,
+        message: 'Transaction should be sent directly from user wallet. This endpoint is for optional server-side relaying.',
+        note: 'Users connect their wallet and send transactions directly - no server private key needed.'
+      });
     }
 
     // Verify we're using Sepolia network

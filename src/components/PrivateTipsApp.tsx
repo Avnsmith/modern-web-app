@@ -1,67 +1,88 @@
 'use client';
 
-import { useState } from 'react';
-import { Wallet, Send, Shield, User, DollarSign, Check, AlertCircle } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { Send, Shield, User, Check, AlertCircle } from 'lucide-react';
+import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { encryptTip, relayEncryptedTip } from '../lib/fhe/client';
+import { parseEther } from 'viem';
+import { encryptTip } from '../lib/fhe/client';
 import { KOLS, type KolProfile } from '../lib/kols';
-
-type TipMethod = 'direct' | 'wallet' | null;
 
 export function PrivateTipsApp() {
   const [selectedKOL, setSelectedKOL] = useState<KolProfile | null>(null);
-  const [tipMethod, setTipMethod] = useState<TipMethod>(null);
   const [tipAmount, setTipAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [encryptedAmount, setEncryptedAmount] = useState('');
   const [status, setStatus] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const { address, isConnected } = useAccount();
+  const { sendTransaction, data: hash, isPending, error: sendError } = useSendTransaction();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   const handleSendTip = async () => {
     if (!tipAmount || !selectedKOL) return;
 
+    if (!isConnected || !address) {
+      setStatus('Please connect your wallet first');
+      return;
+    }
+
     try {
-      setIsProcessing(true);
-      setStatus('Encrypting and sending tip...');
+      setStatus('Encrypting tip amount...');
 
       // Encrypt the tip amount
       const { ciphertext } = await encryptTip({
         amount: parseFloat(tipAmount),
-        from: isConnected && address ? address : 'fan-offchain-id',
+        from: address,
         to: selectedKOL.address,
       });
 
       setEncryptedAmount(ciphertext);
+      setStatus('Sending transaction...');
 
-      // If wallet method, also relay on-chain
-      if (tipMethod === 'wallet' && isConnected && address) {
-        const { txHash } = await relayEncryptedTip({
-          ciphertext,
-          toAddress: selectedKOL.address,
-        });
-        setStatus(`Successfully sent! TxHash: ${txHash || 'N/A'}`);
-      } else {
-        setStatus('Successfully sent!');
-      }
-
-      setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        setTipAmount('');
-        setTipMethod(null);
-        setSelectedKOL(null);
-        setStatus('');
-      }, 3000);
+      // Send transaction directly from user's wallet
+      sendTransaction({
+        to: selectedKOL.address as `0x${string}`,
+        value: parseEther(tipAmount),
+        data: ciphertext as `0x${string}`, // Include encrypted data
+      });
     } catch (error) {
       console.error('Error sending tip:', error);
       setStatus(`Error: ${(error as Error).message}`);
-    } finally {
-      setIsProcessing(false);
     }
   };
+
+  // Handle transaction status updates
+  useEffect(() => {
+    if (isPending) {
+      setStatus('Waiting for wallet confirmation...');
+    } else if (isConfirming) {
+      setStatus('Transaction confirming...');
+    }
+  }, [isPending, isConfirming]);
+
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      setShowSuccess(true);
+      setStatus(`Successfully sent! TxHash: ${hash}`);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setTipAmount('');
+        setSelectedKOL(null);
+        setStatus('');
+      }, 5000);
+    }
+  }, [isConfirmed, hash]);
+
+  useEffect(() => {
+    if (sendError) {
+      setStatus(`Error: ${sendError.message}`);
+    }
+  }, [sendError]);
+
+  const isProcessing = isPending || isConfirming;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4">
@@ -146,100 +167,75 @@ export function PrivateTipsApp() {
                   </div>
                 </div>
 
-                {/* Method Selection */}
-                {!tipMethod && (
-                  <div className="space-y-3">
-                    <p className="font-semibold mb-2">Choose sending method:</p>
-                    <button
-                      onClick={() => setTipMethod('wallet')}
-                      className="w-full p-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg flex items-center justify-between transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Wallet className="w-6 h-6" />
-                        <div className="text-left">
-                          <div className="font-bold">Connect Wallet</div>
-                          <div className="text-sm opacity-90">Send from MetaMask/WalletConnect</div>
-                        </div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setTipMethod('direct')}
-                      className="w-full p-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-between transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        <DollarSign className="w-6 h-6" />
-                        <div className="text-left">
-                          <div className="font-bold">Direct Send</div>
-                          <div className="text-sm opacity-90">Enter wallet address and amount</div>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                )}
-
                 {/* Tip Amount Input */}
-                {tipMethod && (
-                  <div className="space-y-4">
-                    <button
-                      onClick={() => setTipMethod(null)}
-                      className="text-sm text-purple-300 hover:text-purple-100"
-                    >
-                      ← Choose different method
-                    </button>
-
-                    {tipMethod === 'wallet' && !isConnected && (
-                      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 flex gap-2">
-                        <AlertCircle className="w-5 h-5 text-yellow-300 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-yellow-200">
-                          Please connect your wallet to send tips via wallet
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">
-                        Amount (ETH)
-                      </label>
-                      <input
-                        type="number"
-                        value={tipAmount}
-                        onChange={(e) => setTipAmount(e.target.value)}
-                        placeholder="0.01"
-                        step="0.001"
-                        min="0"
-                        className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg focus:border-purple-400 focus:outline-none text-white placeholder-gray-400"
-                      />
-                    </div>
-
-                    {/* FHE Encryption Info */}
-                    <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <Shield className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-semibold text-green-300 mb-1">
-                            Protected by FHE
-                          </div>
-                          <div className="text-sm text-green-200">
-                            Your amount will be fully encrypted. No one, including the KOL, can know the exact amount you send.
-                          </div>
-                        </div>
+                <div className="space-y-4">
+                  {!isConnected && (
+                    <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 flex gap-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-300 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-yellow-200">
+                        Please connect your wallet to send tips
                       </div>
                     </div>
+                  )}
 
-                    {status && (
-                      <div className="text-sm text-purple-200">{status}</div>
-                    )}
-
-                    <button
-                      onClick={handleSendTip}
-                      disabled={!tipAmount || (tipMethod === 'wallet' && !isConnected) || isProcessing}
-                      className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition flex items-center justify-center gap-2"
-                    >
-                      <Send className="w-5 h-5" />
-                      {isProcessing ? 'Processing...' : 'Send Tips'}
-                    </button>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      Amount (ETH)
+                    </label>
+                    <input
+                      type="number"
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      placeholder="0.01"
+                      step="0.001"
+                      min="0"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg focus:border-purple-400 focus:outline-none text-white placeholder-gray-400"
+                    />
                   </div>
-                )}
+
+                  {/* FHE Encryption Info */}
+                  <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-green-300 mb-1">
+                          Protected by FHE
+                        </div>
+                        <div className="text-sm text-green-200">
+                          Your amount will be fully encrypted. No one, including the KOL, can know the exact amount you send.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {status && (
+                    <div className={`text-sm ${status.includes('Error') ? 'text-red-300' : 'text-purple-200'}`}>
+                      {status}
+                    </div>
+                  )}
+
+                  {hash && isConfirmed && (
+                    <div className="text-sm text-green-300">
+                      <a 
+                        href={`https://sepolia.etherscan.io/tx/${hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-green-200"
+                      >
+                        View on Etherscan: {hash.slice(0, 10)}...
+                      </a>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSendTip}
+                    disabled={!tipAmount || !isConnected || isProcessing}
+                    className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-5 h-5" />
+                    {isProcessing ? 'Processing...' : 'Send Tips'}
+                  </button>
+                </div>
 
                 {/* Success Message */}
                 {showSuccess && (
