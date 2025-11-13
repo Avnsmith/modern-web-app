@@ -43,14 +43,14 @@ export function PrivateTipsApp() {
       setStatus('Sending transaction...');
 
       // Send transaction directly from user's wallet
-      // Note: We don't include the full encrypted data in transaction to avoid gas limit issues
+      // IMPORTANT: Simple ETH transfer with NO data field to avoid gas limit errors
       // The encrypted data is stored server-side and linked via encryptionId
-      // Let the wallet automatically estimate gas for a simple ETH transfer
+      // Use minimal gas limit for simple ETH transfer (21000 is standard, safe limit is 30000)
       sendTransaction({
         to: selectedKOL.address as `0x${string}`,
         value: parseEther(tipAmount),
-        // Don't include large encrypted data - it causes gas limit errors
-        // The encryption is handled server-side and linked via the encryptionId
+        gas: BigInt(30000), // Safe limit for simple transfer (well below 16M cap)
+        // DO NOT include data field - causes gas limit errors
       });
     } catch (error) {
       console.error('Error sending tip:', error);
