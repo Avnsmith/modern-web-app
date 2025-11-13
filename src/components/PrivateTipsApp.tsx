@@ -79,6 +79,13 @@ export function PrivateTipsApp() {
       setStatus('Error: Contract address not configured. Please deploy the contract first and set NEXT_PUBLIC_TIPS_CONTRACT_ADDRESS in environment variables.');
       return;
     }
+    
+    // Check if address is valid format
+    if (!ethers.isAddress(TIPS_CONTRACT_ADDRESS)) {
+      setStatus(`Error: Invalid contract address format: ${TIPS_CONTRACT_ADDRESS}. Please check your environment variable.`);
+      console.error('Invalid contract address:', TIPS_CONTRACT_ADDRESS);
+      return;
+    }
 
     try {
       setIsPending(true);
