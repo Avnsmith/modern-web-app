@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Send, Shield, User, Check, AlertCircle } from 'lucide-react';
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { parseEther } from 'viem';
+import { parseEther, createWalletClient, custom } from 'viem';
+import { sepolia } from 'viem/chains';
 import { encryptTip } from '../lib/fhe/client';
 import { KOLS, type KolProfile } from '../lib/kols';
 
@@ -15,23 +16,13 @@ export function PrivateTipsApp() {
   const [encryptedAmount, setEncryptedAmount] = useState('');
   const [status, setStatus] = useState('');
 
-  const { address, isConnected, connector } = useAccount();
-  
-  // Use mutation mode to have full control over transaction
-  const { sendTransaction, data: hash, isPending, error: sendError } = useSendTransaction({
-    mutation: {
-      onError: (error) => {
-        console.error('Transaction error:', error);
-        // Check if error is about data field
-        if (error.message.includes('data') || error.message.includes('gas limit')) {
-          setStatus('Error: Transaction includes data field. This should not happen.');
-        }
-      },
-    },
-  });
+  const { address, isConnected } = useAccount();
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [sendError, setSendError] = useState<Error | null>(null);
   
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
+    hash: txHash || undefined,
   });
 
   const handleSendTip = async () => {
@@ -54,40 +45,56 @@ export function PrivateTipsApp() {
 
       setEncryptedAmount(ciphertext);
       setStatus('Sending transaction...');
-
-      // CRITICAL FIX: Error shows data is STILL being added (0xe3da3b71...)
-      // This data looks like it might be coming from the ciphertext variable
-      // Let's completely isolate the transaction from any encryption variables
       
-      // Clear any potential references to ciphertext before building transaction
-      const cleanCiphertext = ciphertext; // Store separately
-      setEncryptedAmount(cleanCiphertext); // Store in state
+      // CRITICAL: Use wallet provider DIRECTLY to bypass wagmi/viem auto-behavior
+      // This ensures we have complete control and no data is added
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('MetaMask not found');
+      }
       
-      // Now build transaction in completely isolated scope
-      // Use function scope to ensure no variable leakage
-      const buildPureTransaction = () => {
-        const recipient = selectedKOL.address;
-        const ethValue = tipAmount;
-        
-        // Return ONLY what's needed - no data, no ciphertext reference
-        return {
-          to: recipient as `0x${string}`,
-          value: parseEther(ethValue),
-        };
+      // Create wallet client directly with explicit configuration
+      const walletClient = createWalletClient({
+        chain: sepolia,
+        transport: custom(window.ethereum),
+      });
+      
+      // Get account from wallet
+      const [account] = await walletClient.getAddresses();
+      if (!account) {
+        throw new Error('No account found');
+      }
+      
+      // Build transaction with ABSOLUTE minimum - ONLY to and value
+      const txParams = {
+        account,
+        to: selectedKOL.address as `0x${string}`,
+        value: parseEther(tipAmount),
+        // EXPLICITLY do NOT set data, gas, or any other fields
       };
       
-      const tx = buildPureTransaction();
+      console.log('=== DIRECT WALLET TRANSACTION ===');
+      console.log('Params:', JSON.stringify({
+        to: txParams.to,
+        value: txParams.value.toString(),
+        hasData: 'data' in txParams,
+      }));
+      console.log('==================================');
       
-      // Verify transaction object
-      console.log('=== TRANSACTION VERIFICATION ===');
-      console.log('Keys:', Object.keys(tx));
-      console.log('Has data:', 'data' in tx);
-      console.log('Transaction object:', tx);
-      console.log('Ciphertext variable exists:', typeof cleanCiphertext !== 'undefined');
-      console.log('================================');
+      // Send transaction directly via wallet client
+      setIsPending(true);
+      setStatus('Sending transaction...');
       
-      // Send transaction - this MUST be pure ETH transfer
-      sendTransaction(tx);
+      try {
+        const hash = await walletClient.sendTransaction(txParams);
+        setTxHash(hash);
+        setStatus('Transaction sent! Waiting for confirmation...');
+      } catch (err) {
+        setIsPending(false);
+        setSendError(err as Error);
+        throw err;
+      } finally {
+        setIsPending(false);
+      }
     } catch (error) {
       console.error('Error sending tip:', error);
       setStatus(`Error: ${(error as Error).message}`);
@@ -104,17 +111,18 @@ export function PrivateTipsApp() {
   }, [isPending, isConfirming]);
 
   useEffect(() => {
-    if (isConfirmed && hash) {
+    if (isConfirmed && txHash) {
       setShowSuccess(true);
-      setStatus(`Successfully sent! TxHash: ${hash}`);
+      setStatus(`Successfully sent! TxHash: ${txHash}`);
       setTimeout(() => {
         setShowSuccess(false);
         setTipAmount('');
         setSelectedKOL(null);
         setStatus('');
+        setTxHash(null);
       }, 5000);
     }
-  }, [isConfirmed, hash]);
+  }, [isConfirmed, txHash]);
 
   useEffect(() => {
     if (sendError) {
@@ -267,15 +275,15 @@ export function PrivateTipsApp() {
                     </div>
                   )}
 
-                  {hash && isConfirmed && (
+                  {txHash && isConfirmed && (
                     <div className="text-sm text-green-300">
                       <a 
-                        href={`https://sepolia.etherscan.io/tx/${hash}`}
+                        href={`https://sepolia.etherscan.io/tx/${txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline hover:text-green-200"
                       >
-                        View on Etherscan: {hash.slice(0, 10)}...
+                        View on Etherscan: {txHash.slice(0, 10)}...
                       </a>
                     </div>
                   )}
