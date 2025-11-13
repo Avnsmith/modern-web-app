@@ -129,12 +129,45 @@ export function PrivateTipsApp() {
 
       // Send tip with encrypted amount
       // The contract will handle ETH transfer and encrypted balance update
+      
+      // Validate encrypted data format
+      if (!encryptedInput.encryptedData || !encryptedInput.proof) {
+        throw new Error('Invalid encrypted data format. Please try again.');
+      }
+      
+      // Ensure KOL address is valid checksum address
+      const kolAddress = ethers.getAddress(selectedKOL.address);
+      
+      console.log('Sending tip with:', {
+        kolAddress,
+        encryptedData: encryptedInput.encryptedData.slice(0, 20) + '...',
+        proofLength: encryptedInput.proof.length,
+        value: tipAmount
+      });
+      
+      // Estimate gas first to catch errors early
+      try {
+        const gasEstimate = await tipsContract.sendTip.estimateGas(
+          kolAddress,
+          encryptedInput.encryptedData,
+          encryptedInput.proof,
+          {
+            value: ethers.parseEther(tipAmount),
+          }
+        );
+        console.log('Gas estimate:', gasEstimate.toString());
+      } catch (gasError: any) {
+        console.error('Gas estimation failed:', gasError);
+        throw new Error(`Gas estimation failed: ${gasError.message || 'Contract reverted. Please check encrypted data and contract parameters.'}`);
+      }
+      
       const tx = await tipsContract.sendTip(
-        selectedKOL.address,
+        kolAddress,
         encryptedInput.encryptedData,
         encryptedInput.proof,
         {
           value: ethers.parseEther(tipAmount), // Send ETH along with encrypted tip
+          gasLimit: 500000, // Set a reasonable gas limit
         }
       );
 
@@ -147,11 +180,25 @@ export function PrivateTipsApp() {
       }
 
       setStatus('Tip sent successfully with FHE protection!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending tip:', error);
       setIsPending(false);
       setSendError(error as Error);
-      setStatus(`Error: ${(error as Error).message}`);
+      
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Transaction failed';
+      
+      if (error.message?.includes('execution reverted')) {
+        errorMessage = 'Contract execution reverted. This might be due to invalid encrypted data format or contract parameters. Please try again or check the contract.';
+      } else if (error.message?.includes('Gas estimation failed')) {
+        errorMessage = error.message;
+      } else if (error.message?.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected. Please try again.';
+      } else if (error.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds. Please ensure you have enough ETH for the transaction and gas fees.';
+      }
+      
+      setStatus(`Error: ${errorMessage}`);
     } finally {
       setIsPending(false);
     }
