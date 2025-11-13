@@ -5,37 +5,9 @@ export type KolProfile = {
   handle?: string;
   avatar?: string;
   category?: string;
-  description?: string;
 };
 
 export const KOLS: KolProfile[] = [
-  {
-    id: 'rand',
-    name: 'Rand Hindi',
-    handle: '@randhindi',
-    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
-    category: 'Founder',
-    avatar: '👨‍💼',
-    description: 'Zama Founder',
-  },
-  {
-    id: 'bella',
-    name: 'Bella Thorne',
-    handle: '@bellathorne',
-    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
-    category: 'Creator',
-    avatar: '👩‍🎤',
-    description: 'OnlyFans Creator',
-  },
-  {
-    id: 'branch',
-    name: 'Branch',
-    handle: '@Branch',
-    address: '0x0000000000000000000000000000000000000000', // Replace with actual address
-    category: 'Creator',
-    avatar: '🌿',
-    description: 'Content Creator',
-  },
   { 
     id: 1, 
     name: 'Crypto Alice', 
@@ -69,5 +41,3 @@ export const KOLS: KolProfile[] = [
     category: 'Web3'
   },
 ];
-
-
